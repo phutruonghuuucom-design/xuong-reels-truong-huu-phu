@@ -6,7 +6,7 @@ xuong-reels-server.py — Server chạy trên MÁY MAC.
 Server TỰ: chép lời (whisper) -> tự soạn plan -> render -> trả reel về điện thoại.
 Không phụ thuộc gì ngoài Python chuẩn + skill sẵn có.
 """
-import os, sys, json, uuid, threading, subprocess, re, socket, tempfile, shutil, argparse, cgi
+import os, sys, json, uuid, threading, subprocess, re, socket, tempfile, shutil, argparse
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -18,6 +18,7 @@ import auto_plan
 WORKROOT = os.path.join(tempfile.gettempdir(), "xuong-reels-jobs")
 os.makedirs(WORKROOT, exist_ok=True)
 JOBS = {}            # id -> dict(state,pct,msg,out,error,name)
+UPLOADS = {}         # id -> dict(opts,cdir,filename) — upload đang nhận theo từng mảnh
 MODEL = "medium"     # đặt qua --model
 
 
@@ -118,25 +119,62 @@ class H(BaseHTTPRequestHandler):
                               {"Content-Disposition": 'attachment; filename="reels.mp4"'})
         return self._send(404, json.dumps({"error": "not found"}))
 
+    def _qs(self):
+        return dict(x.split("=") for x in self.path.split("?")[-1].split("&") if "=" in x)
+
     def do_POST(self):
-        if self.path.split("?")[0] != "/render":
-            return self._send(404, json.dumps({"error": "not found"}))
-        form = cgi.FieldStorage(fp=self.rfile, headers=self.headers,
-                                environ={"REQUEST_METHOD": "POST",
-                                         "CONTENT_TYPE": self.headers["Content-Type"]})
-        if "video" not in form:
-            return self._send(400, json.dumps({"error": "thiếu video"}))
-        item = form["video"]
-        ext = os.path.splitext(item.filename or "v.mp4")[1] or ".mp4"
+        path = self.path.split("?")[0]
+        if path == "/upload-init":
+            return self._upload_init()
+        if path == "/upload-chunk":
+            return self._upload_chunk()
+        if path == "/upload-complete":
+            return self._upload_complete()
+        return self._send(404, json.dumps({"error": "not found"}))
+
+    def _upload_init(self):
+        # Client gửi JSON {badge_title, badge_sub, cta, cta_label, cta_icon, quality, filename}
+        length = int(self.headers.get("Content-Length", 0))
+        body = self.rfile.read(length) if length else b"{}"
+        try:
+            opts = json.loads(body.decode("utf-8"))
+        except Exception:
+            opts = {}
         jid = uuid.uuid4().hex[:12]
+        cdir = os.path.join(WORKROOT, jid + ".chunks")
+        os.makedirs(cdir, exist_ok=True)
+        UPLOADS[jid] = {"opts": opts, "cdir": cdir,
+                         "filename": opts.get("filename") or "video.mp4"}
+        return self._send(200, json.dumps({"id": jid}))
+
+    def _upload_chunk(self):
+        # Nhận 1 mảnh video (raw bytes) — video lớn được cắt nhỏ ở client để không
+        # vượt giới hạn upload 100MB/lần của Cloudflare khi dùng qua link public.
+        q = self._qs()
+        u = UPLOADS.get(q.get("id"))
+        if not u or "index" not in q:
+            return self._send(400, json.dumps({"error": "upload không hợp lệ"}))
+        length = int(self.headers.get("Content-Length", 0))
+        data = self.rfile.read(length) if length else b""
+        with open(os.path.join(u["cdir"], "%08d" % int(q["index"])), "wb") as f:
+            f.write(data)
+        return self._send(200, json.dumps({"ok": True}))
+
+    def _upload_complete(self):
+        u = UPLOADS.pop(self._qs().get("id"), None)
+        if not u:
+            return self._send(400, json.dumps({"error": "upload không hợp lệ"}))
+        jid = os.path.basename(u["cdir"])[:-len(".chunks")]
+        ext = os.path.splitext(u["filename"])[1] or ".mp4"
         vpath = os.path.join(WORKROOT, jid + ext)
-        with open(vpath, "wb") as f:
-            shutil.copyfileobj(item.file, f)
-        opts = {k: form.getvalue(k, "") for k in
-                ("badge_title", "badge_sub", "cta", "cta_label", "cta_icon", "quality")}
+        with open(vpath, "wb") as out:
+            for name in sorted(os.listdir(u["cdir"])):
+                with open(os.path.join(u["cdir"], name), "rb") as f:
+                    shutil.copyfileobj(f, out)
+        shutil.rmtree(u["cdir"], ignore_errors=True)
+        opts = u["opts"]
         opts["quality"] = opts.get("quality") or "standard"
-        set_job(jid, state="queued", pct=0, msg="Đã nhận video…",
-                name=item.filename or "video")
+        set_job(jid, state="queued", pct=0, msg="Đã nhận video…", name=u["filename"])
         threading.Thread(target=run_pipeline, args=(jid, vpath, opts), daemon=True).start()
         return self._send(200, json.dumps({"id": jid}))
 
@@ -154,9 +192,12 @@ def lan_ip():
 
 def main():
     global MODEL
+    # PaaS (Railway/Render...) gán cổng qua biến môi trường PORT — ưu tiên nó nếu có,
+    # còn không thì dùng mặc định 8000 như khi chạy trên máy Mac.
+    default_port = int(os.environ.get("PORT", 8000))
     ap = argparse.ArgumentParser()
-    ap.add_argument("--port", type=int, default=8000)
-    ap.add_argument("--model", default="medium")
+    ap.add_argument("--port", type=int, default=default_port)
+    ap.add_argument("--model", default=os.environ.get("WHISPER_MODEL", "medium"))
     a = ap.parse_args()
     MODEL = a.model
     ip = lan_ip()

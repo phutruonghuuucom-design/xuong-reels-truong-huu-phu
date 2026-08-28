@@ -7,7 +7,9 @@ Mọi kích thước khai báo trong "không gian 720" (chiều rộng khung = 7
 video mẫu gốc). Khi render ở độ phân giải khác, nhân với hệ số S = out_w / 720
 để giữ nét ở mọi độ phân giải (1080 → S=1.5, 4K 2160 → S=3).
 
-Không phụ thuộc gì ngoài Pillow + font hệ thống macOS.
+Font ưu tiên là font BUNDLED trong assets/fonts/ (Be Vietnam Pro + Noto Color Emoji —
+có dấu tiếng Việt đầy đủ, chạy giống hệt trên macOS lẫn Linux/Docker). Nếu thiếu file
+bundled (chưa cài) thì rơi về font hệ thống macOS như bản gốc.
 """
 import os
 from PIL import Image, ImageDraw, ImageFont
@@ -35,7 +37,21 @@ def _first_existing(cands, label):
     print(f"[th_style] CẢNH BÁO: thiếu font {label}, thử: {cands[0]}", file=sys.stderr)
     return cands[0]
 
-# SF Rounded là font phụ đề/card. Fallback: SF Pro -> Helvetica (mọi máy Mac đều có).
+FONTS_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+                          "assets", "fonts")
+
+
+def _bundled(name):
+    p = os.path.join(FONTS_DIR, name)
+    return p if os.path.exists(p) else None
+
+
+# Font bundled (ưu tiên, giống hệt trên mọi máy) — có dấu tiếng Việt đầy đủ.
+_BUNDLED_BLACK = _bundled("BeVietnamPro-Black.ttf")
+_BUNDLED_BOLD = _bundled("BeVietnamPro-Bold.ttf")
+_BUNDLED_EMOJI = _bundled("NotoColorEmoji.ttf")
+
+# Fallback font hệ thống macOS — chỉ dùng khi thiếu font bundled ở trên.
 SF_ROUNDED = _first_existing([
     "/System/Library/Fonts/SFNSRounded.ttf",
     "/System/Library/Fonts/SFNSRounded-Regular.otf",
@@ -46,26 +62,33 @@ ARIAL_BOLD = _first_existing([
     "/System/Library/Fonts/Supplemental/Arial Bold.ttf",
     "/System/Library/Fonts/Helvetica.ttc",
 ], "Arial Bold")
-ARIAL_REG  = _first_existing([
+ARIAL_REG = _first_existing([
     "/System/Library/Fonts/Supplemental/Arial.ttf",
     "/System/Library/Fonts/Helvetica.ttc",
 ], "Arial")
-EMOJI_FONT = "/System/Library/Fonts/Apple Color Emoji.ttc"
-EMOJI_STRIKE = 160  # Apple Color Emoji chỉ có bitmap ở size 160 -> render rồi thu nhỏ
+EMOJI_FONT = _BUNDLED_EMOJI or "/System/Library/Fonts/Apple Color Emoji.ttc"
+# Font emoji bitmap chỉ có sẵn bitmap ở đúng 1 vài "strike" cố định -> phải xin đúng size đó,
+# xin size khác sẽ lỗi "invalid pixel size". Noto Color Emoji (bundled) chỉ có strike 109;
+# Apple Color Emoji (fallback macOS) chỉ có strike 160. Sau đó luôn crop theo bbox + thu nhỏ
+# về đúng px yêu cầu nên strike gốc không ảnh hưởng chất lượng hiển thị cuối cùng.
+EMOJI_STRIKE = 109 if _BUNDLED_EMOJI else 160
 
 _font_cache = {}
 
 
 def sf(size, weight="Black"):
-    """SF Rounded ở weight yêu cầu (Black/Heavy/Bold/Semibold/Medium/Regular)."""
+    """Phụ đề/card ở weight yêu cầu (Black hoặc Bold/khác)."""
     key = ("sf", int(size), weight)
     if key in _font_cache:
         return _font_cache[key]
-    f = ImageFont.truetype(SF_ROUNDED, int(size))
-    try:
-        f.set_variation_by_name(weight)
-    except Exception:
-        pass
+    is_black = weight.lower() == "black"
+    path = (_BUNDLED_BLACK if is_black else _BUNDLED_BOLD) or SF_ROUNDED
+    f = ImageFont.truetype(path, int(size))
+    if path == SF_ROUNDED:
+        try:
+            f.set_variation_by_name(weight)
+        except Exception:
+            pass
     _font_cache[key] = f
     return f
 
@@ -74,7 +97,8 @@ def arial(size, bold=True):
     key = ("ar", int(size), bold)
     if key in _font_cache:
         return _font_cache[key]
-    f = ImageFont.truetype(ARIAL_BOLD if bold else ARIAL_REG, int(size))
+    path = _BUNDLED_BOLD or (ARIAL_BOLD if bold else ARIAL_REG)
+    f = ImageFont.truetype(path, int(size))
     _font_cache[key] = f
     return f
 

@@ -114,27 +114,40 @@ function syncBadge(){
 $("#b-title").addEventListener("input",syncBadge);
 $("#b-sub").addEventListener("input",syncBadge);
 
+const CHUNK=8*1024*1024; // cắt nhỏ để không vượt giới hạn upload 100MB/lần của Cloudflare
 $("#go").addEventListener("click",()=>{
   if(!videoFile)return;
   $("#setup").classList.add("hide"); $("#run").classList.remove("hide");
   $("#done").classList.add("hide"); $("#fail").classList.add("hide");
   window.scrollTo(0,0);
-  const fd=new FormData();
-  fd.append("video",videoFile);
-  fd.append("badge_title",$("#b-title").value);
-  fd.append("badge_sub",$("#b-sub").value);
-  fd.append("cta",$("#cta").value);
-  const xhr=new XMLHttpRequest();
-  xhr.open("POST","/render");
-  xhr.upload.onprogress=e=>{if(e.lengthComputable){const p=Math.round(e.loaded/e.total*100);
-    setBar(p*0.15); $("#pstat").textContent="Đang gửi video sang Mac… "+p+"%";}};
-  xhr.onload=()=>{
-    if(xhr.status!==200){return failMsg("Gửi video lỗi ("+xhr.status+"). Kiểm tra Mac còn chạy server không.");}
-    try{const j=JSON.parse(xhr.responseText); poll(j.id);}catch(e){failMsg("Máy chủ trả lời lạ.");}
-  };
-  xhr.onerror=()=>failMsg("Không kết nối được Mac. Cùng wifi + server đang chạy chứ?");
-  xhr.send(fd);
+  uploadChunked();
 });
+function uploadChunked(){
+  const opts={badge_title:$("#b-title").value, badge_sub:$("#b-sub").value,
+              cta:$("#cta").value, filename:videoFile.name};
+  fetch("/upload-init",{method:"POST",body:JSON.stringify(opts)})
+    .then(r=>{if(!r.ok)throw 0; return r.json();})
+    .then(j=>sendChunk(j.id,0,videoFile.size))
+    .catch(()=>failMsg("Không kết nối được Mac. Cùng wifi + server đang chạy chứ?"));
+}
+function sendChunk(id,offset,total){
+  if(offset>=total){
+    fetch("/upload-complete?id="+id,{method:"POST"})
+      .then(r=>{if(!r.ok)throw 0; return r.json();})
+      .then(j=>poll(j.id))
+      .catch(()=>failMsg("Không hoàn tất được upload."));
+    return;
+  }
+  const blob=videoFile.slice(offset,Math.min(offset+CHUNK,total));
+  fetch("/upload-chunk?id="+id+"&index="+Math.floor(offset/CHUNK),{method:"POST",body:blob})
+    .then(r=>{
+      if(!r.ok)throw 0;
+      const sent=offset+blob.size, p=Math.round(sent/total*100);
+      setBar(p*0.2); $("#pstat").textContent="Đang tải video lên máy Mac… "+p+"%";
+      sendChunk(id,offset+CHUNK,total);
+    })
+    .catch(()=>failMsg("Gửi video lỗi. Kiểm tra Mac còn chạy server không."));
+}
 function setBar(p){$("#pbar").style.width=Math.max(0,Math.min(100,p))+"%";}
 function poll(id){
   clearInterval(pollT);
