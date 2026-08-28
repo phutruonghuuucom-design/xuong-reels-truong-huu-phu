@@ -17,9 +17,11 @@ RUN pip install --no-cache-dir Pillow numpy openai-whisper
 
 COPY . .
 
-# Tải sẵn model Whisper lúc build — tránh lần dùng đầu tiên phải chờ tải ~1.5GB.
-# Đổi model qua build-arg nếu máy chủ ít RAM (vd: --build-arg WHISPER_MODEL=small).
-ARG WHISPER_MODEL=medium
+# Tải sẵn model Whisper lúc build — tránh lần dùng đầu tiên phải chờ tải.
+# Mặc định "base" (~1GB RAM) để vừa gói server rẻ/free (thường giới hạn RAM 1GB).
+# Máy chủ nhiều RAM hơn thì đổi qua build-arg, vd: --build-arg WHISPER_MODEL=medium
+# (cần ~5GB RAM) để nghe chép lời chính xác hơn.
+ARG WHISPER_MODEL=base
 ENV WHISPER_MODEL=${WHISPER_MODEL}
 RUN python3 -c "import whisper; whisper.load_model('${WHISPER_MODEL}')"
 
