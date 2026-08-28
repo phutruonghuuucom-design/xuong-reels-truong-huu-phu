@@ -1,0 +1,24 @@
+{
+  "_mo_ta": "MẪU 01 — Chia sẻ cách quay (theo video mẫu1.mp4). Talking-head kênh đào tạo Hưng Huỳnh: BADGE H vàng góc trên-trái chạy suốt, phụ đề trắng + từ khoá VÀNG dưới cằm, thẻ CARD nêu bật (viền trái màu + icon + dòng chính) hiện cùng phụ đề, nút CTA vàng cuối. Hợp video mẹo/bí quyết nhiều ý, cần thương hiệu + kêu gọi bình luận.",
+  "_recipe_bien_tap": [
+    "Phụ đề: bám sát lời nói, mỗi dòng 4-8 chữ, tô VÀNG 1-2 cụm từ khoá đắt nhất/dòng.",
+    "Card: mỗi Ý LỚN 1 card, hiện đúng lúc đang nói ý đó (2-5s). label = tên ý (icon 💡 mẹo / ✅ cách sửa / ❌ lỗi). accent: yellow=mẹo, green=giải pháp, red=lỗi/nỗi đau.",
+    "CTA: 4-6s cuối, main_key = từ khoá khách gõ để nhận (vd CÁCH QUAY).",
+    "LUẬT: nghe 'Hương/Hùng' -> ghi 'Hưng'. Không chữ nào đè MẶT người nói (mọi chữ ở 1/3 dưới)."
+  ],
+  "badge": {"title": "HƯNG HUỲNH", "subtitle": "Chia sẻ cách quay video", "letter": "H"},
+  "grade": {
+    "lut_strength": 0.5,
+    "contrast": 1.06,
+    "saturation": 1.12,
+    "brightness": 0.01,
+    "gamma_b": 1.03,
+    "sharpen": 0.6
+  },
+  "audio": {"highpass": 85, "treble": 2.0, "loudness": -14},
+  "zoom": {"enable": true, "amp": 0.09, "y_center": 0.40, "cta_zoom": true},
+  "sfx": {"enable": true, "volume": 0.7, "card_pool": ["06-Pop-1", "12-Nut-UI-2", "07-Pop-2", "13-Nut-UI-3", "08-Pop-3", "11-Nut-UI-1"], "cta_sfx": "16-Chuong-thong-bao-1"},
+  "subtitle_defaults": {"size": 40, "weight": "Bold", "stroke": 7, "y": 0.852},
+  "card_defaults": {"accent": "yellow", "bottom": 0.755},
+  "cta_defaults": {"y": 0.66}
+}

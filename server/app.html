@@ -1,0 +1,163 @@
+<!doctype html><html lang="vi"><head>
+<meta charset="utf-8">
+<title>Xưởng Reels Trương Hữu Phú</title>
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1">
+<style>
+  :root{--yellow:#F7C92E;--ink:#0E0E12;--panel:#17171d;--panel2:#1f1f27;--line:#2c2c36;
+    --text:#F3F1EA;--dim:#9a9aa6;font-family:ui-rounded,-apple-system,system-ui,sans-serif}
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  html,body{margin:0;background:var(--ink);color:var(--text)}
+  body{max-width:520px;margin:0 auto;padding:0 16px 40px}
+  .top{display:flex;align-items:center;gap:11px;padding:16px 0 10px}
+  .logo{width:36px;height:36px;border-radius:50%;background:var(--yellow);color:#111;display:grid;place-items:center;font-weight:900;font-size:21px}
+  .top .t{font-weight:900;font-size:18px;line-height:1}
+  .top .s{color:var(--dim);font-size:12px;margin-top:3px}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:16px;margin-bottom:13px}
+  .card h2{margin:0 0 4px;font-size:14px;font-weight:800}
+  .card .sub{color:var(--dim);font-size:12.5px;line-height:1.5;margin-bottom:12px}
+  .pick{display:flex;flex-direction:column;align-items:center;gap:10px;border:1.5px dashed var(--line);
+    border-radius:14px;padding:26px 16px;text-align:center;color:var(--dim)}
+  .pick.has{border-color:var(--yellow);color:var(--text)}
+  .pick b{color:var(--text);font-size:15px}
+  .pick .btn{background:var(--yellow);color:#111;font-weight:800;padding:12px 22px;border-radius:999px;font-size:15px}
+  .field{margin-top:11px}
+  .field label{display:block;font-size:12px;color:var(--dim);font-weight:700;margin:0 0 6px 2px}
+  input[type=text]{width:100%;background:var(--panel2);border:1px solid var(--line);color:var(--text);
+    border-radius:11px;padding:12px;font-family:inherit;font-size:15px}
+  input:focus{outline:none;border-color:var(--yellow)}
+  .prev{display:flex;align-items:center;gap:11px}
+  .prev .badge{background:rgba(0,0,0,.5);border-radius:999px;padding:7px 13px 7px 7px;display:flex;align-items:center;gap:8px}
+  .prev .bc{width:26px;height:26px;border-radius:50%;background:var(--yellow);color:#111;display:grid;place-items:center;font-weight:900;font-size:15px}
+  .prev .bt{font-weight:900;font-size:13px;line-height:1}
+  .prev .bs{color:var(--dim);font-size:10px;margin-top:1px}
+  details{margin-top:4px}summary{color:var(--dim);font-size:13px;font-weight:700;cursor:pointer;padding:6px 0}
+  button{font-family:inherit;cursor:pointer;border:none;color:inherit}
+  .go{position:sticky;bottom:14px;width:100%;background:var(--yellow);color:#111;font-weight:900;font-size:17px;
+    padding:16px;border-radius:15px;margin-top:6px;box-shadow:0 8px 26px rgba(0,0,0,.5)}
+  .go:disabled{opacity:.45}
+  .bar{height:9px;border-radius:999px;background:var(--line);overflow:hidden;margin:12px 0 6px}
+  .bar i{display:block;height:100%;width:0;background:var(--yellow);transition:width .3s}
+  .status{font-size:13.5px;color:var(--text);font-weight:700;text-align:center}
+  .muted{color:var(--dim);font-size:12px;text-align:center;margin-top:5px;line-height:1.5}
+  .dl{display:block;text-align:center;background:var(--yellow);color:#111;font-weight:900;font-size:16px;padding:15px;border-radius:14px;text-decoration:none;margin-top:6px}
+  video{width:100%;border-radius:12px;margin-top:6px;background:#000}
+  .err{color:#ff8c8c;font-size:13px;text-align:center;font-weight:700}
+  .hide{display:none}
+</style></head><body>
+
+<div class="top"><div class="logo">T</div>
+  <div><div class="t">Xưởng Reels Trương Hữu Phú</div>
+  <div class="s">Bỏ video vào — máy tự làm hết. Anh chỉ đổi badge.</div></div></div>
+
+<div id="setup">
+  <div class="card">
+    <h2>1 · Video quay mặt nói</h2>
+    <label class="pick" id="pick">
+      <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="5" width="14" height="14" rx="3"/><path d="M17 9l4-2v10l-4-2"/></svg>
+      <b id="pick-t">Chọn video từ điện thoại</b>
+      <span id="pick-s" style="font-size:12px">Dọc, ngắn (dưới ~1 phút) cho nhanh</span>
+      <span class="btn">＋ Chọn video</span>
+      <input id="file" type="file" accept="video/*" hidden>
+    </label>
+  </div>
+
+  <div class="card">
+    <h2>2 · Badge thương hiệu</h2>
+    <div class="sub">Thứ duy nhất anh cần chỉnh. Phụ đề, màu, nhịp — máy tự làm.</div>
+    <div class="prev"><div class="badge"><div class="bc" id="pv-c">T</div>
+      <div><div class="bt" id="pv-t">TRƯƠNG HỮU PHÚ</div><div class="bs" id="pv-s">Chia sẻ cách quay video</div></div></div></div>
+    <div class="field"><label>Tên</label><input id="b-title" type="text" value="TRƯƠNG HỮU PHÚ"></div>
+    <div class="field"><label>Dòng phụ</label><input id="b-sub" type="text" value="Chia sẻ cách quay video"></div>
+    <details><summary>Thêm nút kêu gọi cuối video (không bắt buộc)</summary>
+      <div class="field"><label>Chữ trên nút — để trống nếu không cần</label>
+        <input id="cta" type="text" placeholder="vd: Bình luận: CÁCH QUAY"></div>
+    </details>
+  </div>
+  <button class="go" id="go" disabled>Làm reel</button>
+</div>
+
+<div id="run" class="hide">
+  <div class="card">
+    <h2 id="run-h">Đang làm reel…</h2>
+    <div class="bar"><i id="pbar"></i></div>
+    <div class="status" id="pstat">Chuẩn bị…</div>
+    <div class="muted" id="pnote">Giữ trang này mở. Máy Mac đang chép lời và dựng video — có thể vài phút với video dài.</div>
+    <div id="done" class="hide">
+      <a class="dl" id="dl" href="#">⬇ Tải video về máy</a>
+      <video id="pv" controls playsinline></video>
+      <button class="go" id="again" style="position:static;box-shadow:none;background:var(--panel2);color:var(--text);margin-top:10px">Làm video khác</button>
+    </div>
+    <div id="fail" class="hide"><p class="err" id="errm"></p>
+      <button class="go" id="retry" style="position:static;box-shadow:none;background:var(--panel2);color:var(--text)">Thử lại</button></div>
+  </div>
+</div>
+
+<script>
+"use strict";
+const $=s=>document.querySelector(s);
+let videoFile=null, pollT=null;
+const fmtMB=b=>(b/1048576).toFixed(0)+" MB";
+
+$("#file").addEventListener("change",e=>{
+  const f=e.target.files[0]; if(!f)return;
+  videoFile=f;
+  $("#pick").classList.add("has");
+  $("#pick-t").textContent=f.name;
+  $("#pick-s").textContent=fmtMB(f.size)+" · sẵn sàng";
+  $("#go").disabled=false;
+});
+function syncBadge(){
+  const t=$("#b-title").value||"TRƯƠNG HỮU PHÚ";
+  $("#pv-t").textContent=t; $("#pv-c").textContent=(t.trim()[0]||"T").toUpperCase();
+  $("#pv-s").textContent=$("#b-sub").value||"";
+}
+$("#b-title").addEventListener("input",syncBadge);
+$("#b-sub").addEventListener("input",syncBadge);
+
+$("#go").addEventListener("click",()=>{
+  if(!videoFile)return;
+  $("#setup").classList.add("hide"); $("#run").classList.remove("hide");
+  $("#done").classList.add("hide"); $("#fail").classList.add("hide");
+  window.scrollTo(0,0);
+  const fd=new FormData();
+  fd.append("video",videoFile);
+  fd.append("badge_title",$("#b-title").value);
+  fd.append("badge_sub",$("#b-sub").value);
+  fd.append("cta",$("#cta").value);
+  const xhr=new XMLHttpRequest();
+  xhr.open("POST","/render");
+  xhr.upload.onprogress=e=>{if(e.lengthComputable){const p=Math.round(e.loaded/e.total*100);
+    setBar(p*0.15); $("#pstat").textContent="Đang gửi video sang Mac… "+p+"%";}};
+  xhr.onload=()=>{
+    if(xhr.status!==200){return failMsg("Gửi video lỗi ("+xhr.status+"). Kiểm tra Mac còn chạy server không.");}
+    try{const j=JSON.parse(xhr.responseText); poll(j.id);}catch(e){failMsg("Máy chủ trả lời lạ.");}
+  };
+  xhr.onerror=()=>failMsg("Không kết nối được Mac. Cùng wifi + server đang chạy chứ?");
+  xhr.send(fd);
+});
+function setBar(p){$("#pbar").style.width=Math.max(0,Math.min(100,p))+"%";}
+function poll(id){
+  clearInterval(pollT);
+  pollT=setInterval(()=>{
+    fetch("/status?id="+id).then(r=>r.json()).then(j=>{
+      if(j.state==="error"){clearInterval(pollT);return failMsg(j.error||"Lỗi xử lý.");}
+      if(j.pct!=null)setBar(j.pct);
+      if(j.msg)$("#pstat").textContent=j.msg;
+      if(j.state==="done"){clearInterval(pollT);finish(id);}
+    }).catch(()=>{});
+  },1500);
+}
+function finish(id){
+  setBar(100); $("#run-h").textContent="Xong! 🎉"; $("#pstat").textContent="Reel đã sẵn sàng.";
+  $("#pnote").classList.add("hide");
+  const url="/result?id="+id;
+  $("#dl").href=url; $("#pv").src=url; $("#done").classList.remove("hide");
+}
+function failMsg(m){clearInterval(pollT);$("#run-h").textContent="Có trục trặc";$("#pnote").classList.add("hide");
+  $("#errm").textContent=m; $("#fail").classList.remove("hide");}
+$("#again").addEventListener("click",reset);
+$("#retry").addEventListener("click",reset);
+function reset(){$("#run").classList.add("hide");$("#setup").classList.remove("hide");
+  $("#pv").src=""; setBar(0); $("#pnote").classList.remove("hide");}
+syncBadge();
+</script></body></html>
