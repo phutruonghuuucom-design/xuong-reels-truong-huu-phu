@@ -11,19 +11,20 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 WORKDIR /app
 
-# Cài PyTorch bản CPU-only trước (tránh openai-whisper tự kéo bản CUDA nặng gấp nhiều lần).
-RUN pip install --no-cache-dir torch --index-url https://download.pytorch.org/whl/cpu
-RUN pip install --no-cache-dir Pillow numpy openai-whisper
+# faster-whisper (CTranslate2) — không cần PyTorch, nhẹ hơn nhiều và nhanh hơn hẳn
+# openai-whisper CLI trên CPU. Model được server giữ cache trong RAM (xem
+# scripts/th_transcribe.py) nên chỉ tải 1 lần cho suốt vòng đời container.
+RUN pip install --no-cache-dir Pillow numpy faster-whisper
 
 COPY . .
 
-# Tải sẵn model Whisper lúc build — tránh lần dùng đầu tiên phải chờ tải.
-# Mặc định "base" (~1GB RAM) để vừa gói server rẻ/free (thường giới hạn RAM 1GB).
+# Tải sẵn model lúc build — tránh lần dùng đầu tiên phải chờ tải.
+# Mặc định "small": điểm cân bằng tốt nhất tốc độ/độ chính xác, chỉ cần ~1GB RAM.
 # Máy chủ nhiều RAM hơn thì đổi qua build-arg, vd: --build-arg WHISPER_MODEL=medium
-# (cần ~5GB RAM) để nghe chép lời chính xác hơn.
-ARG WHISPER_MODEL=base
+# để nghe chép lời chính xác hơn (chậm hơn đáng kể).
+ARG WHISPER_MODEL=small
 ENV WHISPER_MODEL=${WHISPER_MODEL}
-RUN python3 -c "import whisper; whisper.load_model('${WHISPER_MODEL}')"
+RUN python3 -c "from faster_whisper import WhisperModel; WhisperModel('${WHISPER_MODEL}', device='cpu', compute_type='int8')"
 
 EXPOSE 8000
 CMD ["python3", "server/xuong-reels-server.py"]

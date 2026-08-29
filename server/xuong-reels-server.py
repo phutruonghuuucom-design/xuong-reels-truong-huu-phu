@@ -13,13 +13,15 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 SKILL = os.path.dirname(HERE)
 SCRIPTS = os.path.join(SKILL, "scripts")
 sys.path.insert(0, HERE)
+sys.path.insert(0, SCRIPTS)
 import auto_plan
+import th_transcribe
 
 WORKROOT = os.path.join(tempfile.gettempdir(), "xuong-reels-jobs")
 os.makedirs(WORKROOT, exist_ok=True)
 JOBS = {}            # id -> dict(state,pct,msg,out,error,name)
 UPLOADS = {}         # id -> dict(opts,cdir,filename) — upload đang nhận theo từng mảnh
-MODEL = "medium"     # đặt qua --model
+MODEL = "small"      # đặt qua --model
 
 
 def set_job(jid, **kw):
@@ -34,20 +36,19 @@ def run_pipeline(jid, video, opts):
         dur = float(subprocess.check_output([
             "ffprobe", "-v", "error", "-show_entries", "format=duration",
             "-of", "default=nokey=1:noprint_wrappers=1", video]).decode().strip())
-        # 2) TRANSCRIBE (đọc % của whisper trên stderr)
+        # 2) TRANSCRIBE — gọi trực tiếp trong process (model đã cache sẵn trong RAM
+        # từ lần chạy trước, không tải lại mất 10-30s mỗi lần như trước).
         set_job(jid, state="transcribing", pct=2, msg="Đang nghe chép lời…")
-        p = subprocess.Popen([sys.executable, os.path.join(SCRIPTS, "th_transcribe.py"),
-                              "--video", video, "--out", os.path.join(wd, "tx"),
-                              "--model", MODEL], stderr=subprocess.PIPE, text=True)
-        for line in p.stderr:
-            m = re.findall(r"(\d+)%\|", line)
-            if m:
-                set_job(jid, pct=2 + int(m[-1]) * 0.48, msg="Đang nghe chép lời…")
-        p.wait()
-        segf = os.path.join(wd, "tx.segments.json")
-        if p.returncode != 0 or not os.path.exists(segf):
-            raise RuntimeError("Chép lời lỗi (đã cài whisper chưa?)")
-        segments = json.load(open(segf, encoding="utf-8"))
+
+        def _prog(cur_t, total_t):
+            total_t = total_t or dur or 1
+            set_job(jid, pct=2 + min(48, 48 * cur_t / total_t))
+
+        try:
+            segments = th_transcribe.run(video, os.path.join(wd, "tx"),
+                                          model=MODEL, progress_cb=_prog)
+        except Exception as e:
+            raise RuntimeError("Chép lời lỗi: " + str(e))
         # 3) AUTO PLAN
         set_job(jid, state="planning", pct=52, msg="Đang soạn phụ đề + tô từ khoá…")
         plan = auto_plan.build_plan(segments, opts, dur)
@@ -197,7 +198,7 @@ def main():
     default_port = int(os.environ.get("PORT", 8000))
     ap = argparse.ArgumentParser()
     ap.add_argument("--port", type=int, default=default_port)
-    ap.add_argument("--model", default=os.environ.get("WHISPER_MODEL", "medium"))
+    ap.add_argument("--model", default=os.environ.get("WHISPER_MODEL", "small"))
     a = ap.parse_args()
     MODEL = a.model
     ip = lan_ip()

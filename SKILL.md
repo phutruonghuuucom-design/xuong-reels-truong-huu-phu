@@ -40,17 +40,23 @@ Không bắt buộc: tên **preset** (mặc định `mau-01-chia-se-cach-quay`),
 ## Môi trường máy này (đã kiểm tra)
 - ffmpeg (Homebrew, Apple Silicon) — **KHÔNG có libass** → chữ burn bằng **PNG overlay** (Pillow) rồi `overlay` + `enable`.
 - Pillow (đã cài), numpy.
-- Transcribe: **whisper CLI** `~/Library/Python/3.9/bin/whisper` (openai-whisper).
-- Fonts: `/System/Library/Fonts/SFNSRounded.ttf`, `.../Supplemental/Arial*.ttf`, `.../Apple Color Emoji.ttc`.
+- Transcribe: **faster-whisper** (CTranslate2, không cần PyTorch) — model cache trong RAM qua
+  `th_transcribe.get_model()`, tải 1 lần dùng lại nhiều lần (server web); nhanh hơn hẳn
+  openai-whisper CLI cũ trên CPU (vd model `small`: ~10s tải + ~10s chép lời cho video ~44s,
+  so với `medium` bản cũ mất gần 1 phút).
+- Fonts: bundle sẵn trong `assets/fonts/` (Be Vietnam Pro + Noto Color Emoji — dùng chung
+  macOS/Linux, không phụ thuộc font hệ thống nữa).
 - LUT: `assets/lut.cube` (HBK_GreenField, kèm trong skill).
 
 ## QUY TRÌNH (chạy từng bước, có checkpoint anh duyệt)
 
 **B1 — Transcribe.** Bóc lời có mốc thời gian:
 ```
-python3 scripts/th_transcribe.py --video "<video>" --out /tmp/evr/tx --model medium
+python3 scripts/th_transcribe.py --video "<video>" --out /tmp/evr/tx --model small
 ```
-→ `tx.words.json` (từng từ) + `tx.segments.json` (câu). Model `small` cho nhanh, `medium`/`large-v3` cho chính xác (chậm hơn trên CPU).
+→ `tx.words.json` (từng từ) + `tx.segments.json` (câu). Model `small` là điểm cân bằng tốt nhất
+(nhanh, chính xác gần như `medium`). `base`/`tiny` nhanh hơn nữa nhưng dễ nghe sai nhiều hơn;
+`medium`/`large-v3` chính xác nhất nhưng chậm hơn hẳn — chỉ cần khi `small` sai quá nhiều.
 
 **B2 — Claude soạn PLAN + trình anh duyệt.** Đọc transcript rồi TỰ đề xuất:
 - `keep`: các đoạn giữ (bỏ đoạn vấp/lặp/im lặng dài). Thiếu = giữ cả video.
@@ -99,7 +105,7 @@ Mỗi mẫu = 1 file `presets/<tên>.json` mô tả badge + màu grade + audio +
 - `mau-01-chia-se-cach-quay` — HIỆN ĐẠI: badge + card/cta, phụ đề trắng + từ khoá vàng. (nguồn: video mẫu1.mp4)
 
 ## Scripts
-- `scripts/th_transcribe.py` — whisper CLI → words/segments JSON.
+- `scripts/th_transcribe.py` — faster-whisper (module, cache model trong RAM) → words/segments JSON.
 - `scripts/th_style.py` — palette + font + tiện ích vẽ (PIL).
 - `scripts/th_overlay.py` — render badge/subtitle/card/cta thành PNG + vị trí.
 - `scripts/th_render.py` — cắt + grade + ghép overlay + audio + export (1 lần encode).
@@ -124,3 +130,10 @@ Mỗi mẫu = 1 file `presets/<tên>.json` mô tả badge + màu grade + audio +
   (`1.03`→`1.05-1.07`, cắt ám vàng thêm), tăng `sharpen` nhẹ (`0.6`→`0.75-0.85`), và có thể
   giảm `lut_strength` (`0.5`→`0.4-0.45`) để LUT bớt lấn màu tự nhiên. Đẩy tăng dần qua vài
   vòng nháp, đừng nhảy quá tay kẻo cháy sáng.
+- **Transcribe chậm khi chạy qua app web** (đã fix): bản cũ gọi `whisper` CLI bằng
+  `subprocess.Popen` riêng cho MỖI video → phải tải lại model từ đầu (~10-30s tuỳ size) mỗi lần,
+  cộng với openai-whisper (PyTorch) vốn chậm trên CPU. Đã đổi sang **faster-whisper**
+  (CTranslate2, không cần PyTorch) và **giữ model cache trong RAM** qua
+  `th_transcribe.get_model()` — server gọi `th_transcribe.run()` trực tiếp (import module) thay
+  vì tạo subprocess mới, model chỉ tải 1 lần cho suốt vòng đời server. Đổi model mặc định từ
+  `medium` → `small` (nhanh hơn nhiều, độ chính xác giảm không đáng kể với audio rõ ràng).
