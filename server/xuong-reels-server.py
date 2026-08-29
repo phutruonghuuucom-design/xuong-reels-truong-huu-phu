@@ -6,7 +6,7 @@ xuong-reels-server.py — Server chạy trên MÁY MAC.
 Server TỰ: chép lời (whisper) -> tự soạn plan -> render -> trả reel về điện thoại.
 Không phụ thuộc gì ngoài Python chuẩn + skill sẵn có.
 """
-import os, sys, json, uuid, threading, subprocess, re, socket, tempfile, shutil, argparse
+import os, sys, json, uuid, threading, subprocess, re, socket, tempfile, shutil, argparse, traceback
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -62,16 +62,21 @@ def run_pipeline(jid, video, opts):
                               "--quality", opts.get("quality", "standard"),
                               "--workdir", os.path.join(wd, "rd")],
                              stderr=subprocess.STDOUT, stdout=subprocess.PIPE, text=True)
+        render_log = []
         for line in p.stdout:
+            render_log.append(line)
             m = re.search(r"time=(\d+):(\d+):(\d+\.\d+)", line.replace("\r", "\n"))
             if m:
                 t = int(m.group(1)) * 3600 + int(m.group(2)) * 60 + float(m.group(3))
                 set_job(jid, pct=min(99, 55 + 44 * t / max(dur, 1)))
         p.wait()
         if p.returncode != 0 or not os.path.exists(out):
-            raise RuntimeError("Render lỗi")
+            tail = "".join(render_log[-40:]).strip()
+            print("RENDER FAIL rc=%s\n%s" % (p.returncode, tail), flush=True)
+            raise RuntimeError("Render lỗi (rc=%s): %s" % (p.returncode, tail[-600:] or "không có output"))
         set_job(jid, state="done", pct=100, msg="Xong!", out=out)
     except Exception as e:
+        print("PIPELINE FAIL:", traceback.format_exc(), flush=True)
         set_job(jid, state="error", error=str(e), msg="Lỗi: " + str(e))
     finally:
         try:
