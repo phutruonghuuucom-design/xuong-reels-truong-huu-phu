@@ -7,6 +7,18 @@ Dùng cho chế độ "bỏ video vào là xong": tách câu dài, tự chọn 1
 """
 import re
 
+# Từ đệm/tiếng đưa hơi — khi đứng RIÊNG một mình ở đầu/cuối câu (hoặc chiếm
+# trọn nguyên 1 segment do VAD tách vì có khoảng lặng quanh nó) thì bị CẮT bỏ
+# luôn, không giữ trong video lẫn phụ đề.
+FILLER = set("""
+à ạ á ằ ầy ừ ừm ừa ờ ợ ê ề ế ơ ơi dạ hử hửm ối ưm um
+""".split())
+
+# Khoảng lặng giữa 2 đoạn nói dài hơn ngưỡng này (giây) -> cắt bỏ hẳn.
+CUT_GAP = 0.35
+# Đệm quanh mỗi đoạn giữ, tránh cắt cụt đầu/cuối tiếng nói.
+KEEP_PAD = 0.12
+
 # Từ chức năng tiếng Việt — KHÔNG chọn làm từ khoá nổi bật.
 STOP = set("""
 thì là mà và của các bạn này cái nó cho để một như thế đang rất hơn được có không ở
@@ -42,6 +54,59 @@ def pick_keywords(text, k=2):
     return out
 
 
+def _strip_filler_edges(words):
+    """Bỏ các từ đệm đứng LIÊN TỤC ở đầu và cuối câu. Trả None nếu cả câu chỉ
+    toàn từ đệm (segment bị bỏ hẳn)."""
+    i, j = 0, len(words) - 1
+    while i <= j and _core(words[i]["word"]) in FILLER:
+        i += 1
+    while j >= i and _core(words[j]["word"]) in FILLER:
+        j -= 1
+    if i > j:
+        return None
+    return words[i:j + 1]
+
+
+def _adjust_segments(segments):
+    """Cắt từ đệm đầu/cuối mỗi segment bằng mốc thời gian từng-từ (nếu có);
+    segment nào toàn từ đệm thì bỏ hẳn. Segment không có mốc từng-từ (nguồn
+    cũ/test) thì giữ nguyên — không lọc được, nhưng vẫn dùng để tính khoảng lặng."""
+    out = []
+    for seg in segments:
+        text = (seg.get("text") or "").strip()
+        if not text:
+            continue
+        words = seg.get("words") or []
+        if not words:
+            out.append(dict(seg))
+            continue
+        kept = _strip_filler_edges(words)
+        if not kept:
+            continue
+        out.append({
+            "start": kept[0]["start"], "end": kept[-1]["end"],
+            "text": " ".join(w["word"].strip() for w in kept if w["word"].strip()),
+        })
+    return out
+
+
+def _build_keep(segments, dur):
+    """Ghép các đoạn có tiếng nói (đã đệm) thành danh sách [start,end] cần
+    GIỮ; khoảng lặng > CUT_GAP giữa 2 đoạn thì cắt bỏ hẳn (jump-cut)."""
+    spans = sorted((float(s["start"]), float(s["end"])) for s in segments)
+    if not spans:
+        return [[0.0, round(float(dur), 2)]]
+    keep = []
+    for s, e in spans:
+        s = max(0.0, s - KEEP_PAD)
+        e = min(float(dur), e + KEEP_PAD)
+        if keep and s - keep[-1][1] <= CUT_GAP:
+            keep[-1][1] = max(keep[-1][1], e)
+        else:
+            keep.append([s, e])
+    return [[round(a, 2), round(b, 2)] for a, b in keep]
+
+
 def _split_long(seg, max_words=9):
     words = seg["text"].split()
     if len(words) <= max_words:
@@ -56,7 +121,8 @@ def _split_long(seg, max_words=9):
 
 
 def build_plan(segments, opts, dur):
-    """segments: [{start,end,text}]; opts: badge_title/badge_sub/cta...; dur: giây."""
+    """segments: [{start,end,text,words?}]; opts: badge_title/badge_sub/cta...; dur: giây."""
+    segments = _adjust_segments(segments)
     subs = []
     for seg in segments:
         for s in _split_long(seg):
@@ -72,7 +138,7 @@ def build_plan(segments, opts, dur):
     title = (opts.get("badge_title") or "TRƯƠNG HỮU PHÚ").strip()
     plan = {
         "preset": "mau-01-chia-se-cach-quay",
-        "keep": [[0, round(float(dur), 2)]],
+        "keep": _build_keep(segments, dur),
         "badge": {
             "title": title,
             "subtitle": (opts.get("badge_sub") or "Chia sẻ cách quay video").strip(),

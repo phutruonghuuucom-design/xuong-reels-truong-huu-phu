@@ -54,13 +54,15 @@ def run(video, out, model="small", lang="vi", progress_cb=None):
 
     words, segs = [], []
     for seg in segments_iter:
+        # words gắn theo TỪNG segment (không chỉ dồn vào list phẳng) — auto_plan.py
+        # dùng mốc này để cắt khoảng lặng + từ đệm (ừ/à/ờ...) đứng riêng đầu/cuối câu.
+        seg_words = [{"start": round(w.start, 2), "end": round(w.end, 2),
+                      "word": w.word.strip()} for w in (seg.words or [])]
         segs.append({"start": round(seg.start, 2),
                      "end": round(seg.end, 2),
-                     "text": seg.text.strip()})
-        for w in (seg.words or []):
-            words.append({"start": round(w.start, 2),
-                          "end": round(w.end, 2),
-                          "word": w.word.strip()})
+                     "text": seg.text.strip(),
+                     "words": seg_words})
+        words.extend(seg_words)
         if progress_cb:
             progress_cb(seg.end, info.duration)
 
